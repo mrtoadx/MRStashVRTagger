@@ -235,49 +235,56 @@
   // ── Navbar icon ────────────────────────────────────────────────────────────
 
   async function injectNavButton() {
-    if (document.getElementById("vra-nav-btn")) return;
-    const navbar = document.querySelector(".navbar") || document.querySelector("nav");
-    if (!navbar) return;
+  const navbar = document.querySelector(".navbar") || document.querySelector("nav");
+  if (!navbar) return;
 
-    // Only show the icon if there's an audit available
-    const audit = await fetchAudit();
-    if (!audit) return;
+  const target =
+    navbar.querySelector(".navbar-buttons") ||
+    navbar.querySelector(".ml-auto.navbar-nav") ||
+    navbar.querySelector(".navbar-nav:last-child") ||
+    navbar;
 
-    const target =
-      navbar.querySelector(".navbar-buttons") ||
-      navbar.querySelector(".ml-auto.navbar-nav") ||
-      navbar.querySelector(".navbar-nav:last-child") ||
-      navbar;
+  // If our button is already inside THIS target, we're done.
+  // (getElementById alone isn't enough — the old button may be orphaned
+  //  in a detached node after a React re-render.)
+  if (target.querySelector("#vra-nav-btn")) return;
 
-    const total = (audit.needs_add.length + audit.needs_remove.length);
+  // Clean up any orphaned/stale instances elsewhere in the document
+  document.querySelectorAll("#vra-nav-btn").forEach(el => el.remove());
 
-    const btn = document.createElement("button");
-    btn.id = "vra-nav-btn";
-    btn.title = `VR Audit: ${total} scene${total!==1?"s":""} need attention`;
-    // Goggles-ish icon: two circles in a frame
-    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="2" y="7" width="20" height="11" rx="3"></rect>
-      <circle cx="8" cy="12.5" r="2"></circle>
-      <circle cx="16" cy="12.5" r="2"></circle>
-    </svg>${total > 0 ? `<span class="vra-badge-count">${total}</span>` : ""}`;
-    btn.style.cssText = [
-      "background:transparent","border:none","color:#aaa","cursor:pointer",
-      "padding:6px","display:inline-flex","align-items:center",
-      "justify-content:center","border-radius:4px","line-height:1",
-      "position:relative",
-    ].join(";");
-    btn.addEventListener("click", openModal);
-    btn.addEventListener("mouseenter", () => { btn.style.color = "#4fc3f7"; });
-    btn.addEventListener("mouseleave", () => { btn.style.color = "#aaa"; });
-    target.insertBefore(btn, target.firstChild);
-    LOG("Nav button injected");
+  // Only show the icon if there's an audit available
+  const audit = await fetchAudit();
+  if (!audit) return;
+
+  const total = audit.needs_add.length + audit.needs_remove.length;
+
+  const btn = document.createElement("button");
+  btn.id = "vra-nav-btn";
+  btn.title = `VR Audit: ${total} scene${total !== 1 ? "s" : ""} need attention`;
+  btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="7" width="20" height="11" rx="3"></rect>
+    <circle cx="8" cy="12.5" r="2"></circle>
+    <circle cx="16" cy="12.5" r="2"></circle>
+  </svg>${total > 0 ? `<span class="vra-badge-count">${total}</span>` : ""}`;
+  btn.style.cssText = [
+    "background:transparent","border:none","color:#aaa","cursor:pointer",
+    "padding:6px","display:inline-flex","align-items:center",
+    "justify-content:center","border-radius:4px","line-height:1",
+    "position:relative",
+  ].join(";");
+  btn.addEventListener("click", openModal);
+  btn.addEventListener("mouseenter", () => { btn.style.color = "#4fc3f7"; });
+  btn.addEventListener("mouseleave", () => { btn.style.color = "#aaa"; });
+
+  // prepend() is the safe modern equivalent of insertBefore(x, firstChild)
+  // and won't throw if the target's children change underneath us.
+  try {
+    target.prepend(btn);
+    LOG("Nav button injected into:", target.className);
+  } catch (e) {
+    LOG("Nav button inject failed:", e);
   }
+}
 
-  setTimeout(injectNavButton, 800);
-  if (PluginApi && PluginApi.Event) {
-    PluginApi.Event.addEventListener("stash:location", () => setTimeout(injectNavButton, 300));
-  }
 
-  // Expose for debugging
-  window.MRStashVRTagger = { open: openModal, refresh: injectNavButton };
-})();
+)();
